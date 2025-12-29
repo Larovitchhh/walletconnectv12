@@ -1,64 +1,40 @@
 ;; --------------------------------------------------
-;; WalletConnect V12 - Reown Reward Token (RRT)
+;; WalletConnect V12 - SIMPLE REWARD TOKEN
 ;; --------------------------------------------------
 
-;; Implementación del estándar SIP-010
-(impl-trait 'SP3FBR2AGK5H9QBDH3EEN6DF8EK8JY7RX8QJ5SVTE.sip-010-trait-ft-standard.sip-010-trait)
+;; 1. Definir el Token (Sin límites para evitar errores)
+(define-fungible-token reown-token)
 
-(define-fungible-token reown-reward-token)
+;; 2. Variables de configuración
+(define-constant ADMIN tx-sender)
 
-;; Constantes
-(define-constant CONTRACT-OWNER tx-sender)
-(define-constant ERR-OWNER-ONLY (err u100))
-(define-constant ERR-NOT-TOKEN-OWNER (err u101))
+;; 3. FUNCIONES PÚBLICAS (Fáciles de usar)
 
-;; Configuración del Token
-(define-constant TOKEN-NAME "Reown Reward Token")
-(define-constant TOKEN-SYMBOL "RRT")
-(define-constant TOKEN-DECIMALS u6)
+;; RECOMPENSA: Envías 1 STX y recibes 100 Tokens automáticamente
+;; Ideal para probar con el botón de Reown / AppKit
+(define-public (get-tokens)
+    (let (
+        (stx-cost u1000000)      ;; 1 STX
+        (token-amount u100000000) ;; 100 Tokens
+    )
+        ;; Transferir STX al Admin
+        (try! (stx-transfer? stx-cost tx-sender ADMIN))
+        ;; Mintear tokens al usuario
+        (ft-mint? reown-token token-amount tx-sender)
+    )
+)
 
-;; --- Funciones SIP-010 (Estándar) ---
+;; TRANSFERIR: Para que tus usuarios se envíen tokens entre ellos
+(define-public (send-tokens (amount uint) (receiver principal))
+    (ft-transfer? reown-token amount tx-sender receiver)
+)
 
-(define-read-only (get-balance (who principal))
-  (ok (ft-get-balance reown-reward-token who))
+;; 4. FUNCIONES DE LECTURA (Para tu interfaz)
+
+(define-read-only (get-my-balance (user principal))
+    (ok (ft-get-balance reown-token user))
 )
 
 (define-read-only (get-total-supply)
-  (ok (ft-get-supply reown-reward-token))
-)
-
-(define-read-only (get-name) (ok TOKEN-NAME))
-(define-read-only (get-symbol) (ok TOKEN-SYMBOL))
-(define-read-only (get-decimals) (ok TOKEN-DECIMALS))
-(define-read-only (get-token-uri) (ok (some u"https://reown.com/metadata.json")))
-
-;; --- Funciones Públicas Especiales ---
-
-;; RECOMPENSA: Cualquiera puede obtener tokens donando 1 STX al contrato
-;; Esto es lo que conectarás al botón de Reown en tu dApp
-(define-public (contribute-and-mint)
-  (let (
-    (amount-stx u1000000) ;; 1 STX
-    (reward-tokens u10000000) ;; Te damos 10 RRT (con 6 decimales)
-    (recipient tx-sender)
-  )
-    ;; 1. El usuario envía 1 STX al dueño del contrato
-    (try! (stx-transfer? amount-stx tx-sender CONTRACT-OWNER))
-    
-    ;; 2. El contrato le mintea automáticamente sus RRT
-    (try! (ft-mint? reown-reward-token reward-tokens recipient))
-    
-    (print { event: "contribution-reward", user: recipient, tokens: reward-tokens })
-    (ok true)
-  )
-)
-
-;; Transferencia estándar (SIP-010)
-(define-public (transfer (amount uint) (sender principal) (recipient principal) (memo (optional (buff 34))))
-  (begin
-    (asserts! (or (is-eq tx-sender sender) (is-eq contract-caller sender)) ERR-NOT-TOKEN-OWNER)
-    (try! (ft-transfer? reown-reward-token amount sender recipient))
-    (match memo to-print (print to-print) 0x)
-    (ok true)
-  )
+    (ok (ft-get-supply reown-token))
 )
